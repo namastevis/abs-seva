@@ -152,11 +152,13 @@ function writeRow_(t, rowNo, obj) {
 function insert_(name, obj) {
   const t = table_(name);
   if (t.head.indexOf('id') >= 0) {
-    // ids are never reused (a deleted volunteer's number is not handed to someone else): a counter per tab
-    const key = 'NEXT_ID_' + name;
     const maxId = t.rows.reduce((m, r) => Math.max(m, r.id || 0), 0);
-    if (!obj.id) obj.id = Math.max(Number(props_().getProperty(key)) || 0, maxId + 1);
-    props_().setProperty(key, String(Math.max(Number(props_().getProperty(key)) || 0, obj.id + 1)));
+    if (name === 'Volunteers') {
+      // registration numbers are never reused (a deleted volunteer's number is not given to someone else)
+      const next = Number(props_().getProperty('NEXT_VOLUNTEER_ID')) || 0;
+      if (!obj.id) obj.id = Math.max(next, maxId + 1);
+      if (obj.id + 1 > next) props_().setProperty('NEXT_VOLUNTEER_ID', String(obj.id + 1));
+    } else if (!obj.id) obj.id = maxId + 1;
   }
   const rowNo = Math.max(t.sh.getLastRow(), 1) + 1;
   writeRow_(t, rowNo, obj);
@@ -224,10 +226,12 @@ function i18nOf_(row) {
   return o;
 }
 function props_() { return PropertiesService.getScriptProperties(); }
+let _secret = null;
 function secret_() {
+  if (_secret) return _secret;
   let s = props_().getProperty('SECRET');
   if (!s) { s = Utilities.getUuid() + Utilities.getUuid(); props_().setProperty('SECRET', s); }
-  return s;
+  return (_secret = s);
 }
 function sign_(payload) {
   const body = Utilities.base64EncodeWebSafe(JSON.stringify(payload));
@@ -336,12 +340,14 @@ function route_(r, b) {
   }
 
   case 'translate': {
+    if (hit_('tr:all', 3600) > 3000) return { ok: false, english: null };   // keep quota for registrations
     const from = LANGS.indexOf(b.from) >= 0 ? b.from : 'en';
     const en = toEnglish_(str_(b.text, 1000), from, b.mode === 'name' ? 'name' : 'text');
     return { ok: en !== null, english: en };
   }
 
   case 'register':
+    if (!throttle_('reg:all', 40, 60)) fail_('Too many registrations right now. Please try again in a minute.', 429);
     return withLock_(() => {
       const vols = table_('Volunteers').rows;
       const clientId = str_(b.client_id, 64);
@@ -350,10 +356,9 @@ function route_(r, b) {
         if (dupe) return { ok: true, id: dupe.id, reg_no: dupe.reg_no, replayed: true };
       }
       const v = volunteerInput_(b);
-      if (!throttle_('reg:all', 120, 60)) fail_('Too many registrations right now. Please try again in a minute.', 429);
       const same = vols.filter((x) => String(x.mobile) === v.mobile).length;
       if (same && !b.force) fail_('duplicate_mobile', 409, { duplicate: true });
-      if (same >= 3) fail_('This mobile number is already used by 3 registrations. Please contact the organisers.', 429);
+      if (same >= 2) v.needs_review = 1;   // a 3rd+ registration on one mobile: organisers take a look
       hit_('reg:all', 60);
       v.photo = savePhoto_(b.photo, null);
       v.client_id = clientId;
@@ -370,9 +375,9 @@ function route_(r, b) {
     const m = /(\d+)\D*$/.exec(toAscii_(b.reg_no));
     const id = m ? Number(m[1]) : 0;
     const mobile = toAscii_(b.mobile).replace(/\D/g, '').slice(-10);
-    if (!throttle_('lk:id:' + id, 8, 3600) || !throttle_('lk:m:' + mobile, 8, 3600) || !throttle_('lk:all', 300, 3600)) fail_('too_many_attempts', 429);
+    if (!throttle_('lk:id:' + id, 10, 3600) || !throttle_('lk:m:' + mobile, 10, 3600)) fail_('too_many_attempts', 429);
     const v = id && mobile.length === 10 ? byId_('Volunteers', id) : null;
-    if (!v || String(v.mobile) !== mobile) { hit_('lk:id:' + id, 3600); hit_('lk:m:' + mobile, 3600); hit_('lk:all', 3600); fail_('not_found', 404); }
+    if (!v || String(v.mobile) !== mobile) { hit_('lk:id:' + id, 3600); hit_('lk:m:' + mobile, 3600); fail_('not_found', 404); }
     return { ok: true, item: publicVolunteer_(shapeVolunteer_(v)), token: editToken_(v, Date.now() + CONFIG.EDIT_TOKEN_HOURS * 3600e3) };
   }
 
@@ -406,9 +411,9 @@ function route_(r, b) {
   /* ---------------- admin: session ---------------- */
   case 'login': {
     const u = str_(b.username, 80).toLowerCase();
-    if (!throttle_('login:' + u, 10, 900) || !throttle_('login:all', 100, 900, true)) fail_('Too many attempts. Try again in 15 minutes.', 429);
+    if (!throttle_('login:' + u, 10, 900)) fail_('Too many attempts for this username. Try again in 15 minutes.', 429);
     let a = admins_().find((x) => x.username.toLowerCase() === u);
-    if (!a || !passwordOk_(a.password, b.password)) { hit_('login:' + u, 900); hit_('login:all', 900); Utilities.sleep(500); fail_('Wrong username or password', 401); }
+    if (!a || !passwordOk_(a.password, b.password)) { hit_('login:' + u, 900); Utilities.sleep(500); fail_('Wrong username or password', 401); }
     if (!/^hash:/.test(a.password)) {   // first login with a typed password: store its hash instead
       withLock_(() => hashAdminPasswords());
       a = admins_().find((x) => x.username.toLowerCase() === u);
@@ -422,6 +427,16 @@ function route_(r, b) {
   }
   case 'logout':
     return { ok: true };
+  case 'change_password':
+    return withLock_(() => {
+      const a = requireAdmin_(b, null);
+      const row = table_('Admins').rows.find((x) => String(x.username).trim().toLowerCase() === a.username.toLowerCase());
+      if (!row || !passwordOk_(row.password, b.current)) fail_('Current password is wrong', 403);
+      if (String(b.password || '').length < MIN_PASSWORD) fail_('New password: at least ' + MIN_PASSWORD + ' characters', 422);
+      update_('Admins', row, { password: hashPassword_(String(b.password)) });
+      const fresh = admins_().find((x) => x.username === a.username);
+      return { ok: true, token: sign_({ kind: 'admin', u: a.username, pv: pwVersion_(fresh), exp: Date.now() + CONFIG.TOKEN_HOURS * 3600e3 }) };
+    });
 
   case 'admin_bootstrap': {   // everything the dashboard needs except the volunteer list, in one call
     requireAdmin_(b, 'view');
@@ -1216,8 +1231,27 @@ function importFromVps() {
         if (!dupe) insert_('Remarks', { entity_type: r.entity_type, entity_id: r.entity_id, body: r.body, author: r.author, created_at: r.created_at });
       });
     });
-    // Volunteers (old ids → same registration numbers). Typed "Other" sevas that match a list entry are linked.
+    // Volunteers keep their old ids and registration numbers. A registration made on this new site that
+    // already uses one of those numbers (usually a test entry) gets the next free number, with a remark.
     let added = 0;
+    const renumbered = [];
+    const imported = (row) => /^vps-(import|done):/.test(row.client_id || '');
+    const oldIds = vols.map((v) => v.id);
+    let next = Math.max(Number(props_().getProperty('NEXT_VOLUNTEER_ID')) || 0, ...oldIds.map((x) => x + 1),
+      ...table_('Volunteers').rows.map((r) => r.id + 1));
+    vols.forEach((v) => {
+      const clash = byId_('Volunteers', v.id);
+      if (!clash || imported(clash)) return;
+      const from = clash.reg_no, newId = next++;
+      table_('Remarks').rows.filter((x) => x.entity_type === 'volunteer' && x.entity_id === clash.id).forEach((x) => update_('Remarks', x, { entity_id: newId }));
+      table_('Groups').rows.filter((g) => g.leader_id === clash.id).forEach((g) => update_('Groups', g, { leader_id: newId }));
+      update_('Volunteers', clash, { id: newId, reg_no: regNo_(newId), updated_at: now_() });
+      insert_('Remarks', { entity_type: 'volunteer', entity_id: newId, author: 'import', created_at: now_(),
+        body: 'Registration number changed from ' + from + ' to ' + regNo_(newId) + ' (the old website had already given ' + from + ' to someone else).' });
+      renumbered.push(from + ' → ' + regNo_(newId) + ' (' + clash.name + ')');
+    });
+    props_().setProperty('NEXT_VOLUNTEER_ID', String(next));
+    // Typed "Other" sevas that match a list entry are linked.
     const sevaByName = {};
     table_('Lists').rows.filter((x) => x.kind === 'seva').forEach((x) => { sevaByName[x.name.toLowerCase()] = x.id; });
     vols.forEach((v) => {
@@ -1230,15 +1264,16 @@ function importFromVps() {
         lsangha_other: v.lsangha_other || '', seva_id: sevaId, seva_other: sevaOther, group_id: v.group_id, address: v.address, language: v.language,
         photo: v.photo ? 'vps:' + v.photo : '', original: v.original ? JSON.stringify(v.original) : '', needs_review: v.needs_review ? 1 : 0,
         printed_at: v.printed_at || '', printed_by: v.printed_by || '', print_count: v.print_count || 0, edit_count: 0,
-        created_at: v.created_at, updated_at: v.updated_at || v.created_at, client_id: '' });
+        created_at: v.created_at, updated_at: v.updated_at || v.created_at, client_id: 'vps-import:' + v.id });
       added++;
     });
-    return { added: added, total: table_('Volunteers').rows.length };
+    return { added: added, total: table_('Volunteers').rows.length, renumbered: renumbered };
   });
   clearConfigCache_();
   props_().setProperty('IMPORT_CURSOR', '0');
   const more = importPhotosAndRemarks();
-  return 'Imported ' + report.added + ' new registration(s); ' + report.total + ' in the Sheet now.\n' + more;
+  return 'Imported ' + report.added + ' new registration(s); ' + report.total + ' in the Sheet now.\n' +
+    (report.renumbered.length ? 'Renumbered here because the old site had already used the number: ' + report.renumbered.join('; ') + '\n' : '') + more;
 }
 
 /** Step 2: photos (into the Drive folder) and each volunteer's remarks. Stops before Google's
@@ -1248,7 +1283,8 @@ function importPhotosAndRemarks() {
   const vps = vpsSession_();
   ScriptApp.getProjectTriggers().filter((t) => t.getHandlerFunction() === 'importPhotosAndRemarks').forEach((t) => ScriptApp.deleteTrigger(t));
   _db = {};
-  const todo = table_('Volunteers').rows.filter((v) => /^vps:/.test(v.photo || '')).sort((a, b) => a.id - b.id).map((v) => v.id);
+  // every imported volunteer not finished yet (client_id "vps-import:<old id>" → "vps-done:<old id>")
+  const todo = table_('Volunteers').rows.filter((v) => /^vps-import:/.test(v.client_id || '')).sort((a, b) => a.id - b.id).map((v) => v.id);
   let done = 0;
   for (const id of todo) {
     if (Date.now() - started > 4.5 * 60e3) {
@@ -1258,20 +1294,22 @@ function importPhotosAndRemarks() {
     let detail = null, blob = null;
     try { detail = vps.get('volunteer', { id: id }).item; } catch (e) { /* deleted on the old site meanwhile */ }
     const path = (byId_('Volunteers', id) || {}).photo || '';
-    try {
-      const r = UrlFetchApp.fetch(vps.url + '/' + path.replace(/^vps:/, ''), { muteHttpExceptions: true });
-      if (r.getResponseCode() === 200) blob = r.getBlob();
-    } catch (e) {}
+    if (/^vps:/.test(path)) {
+      try {
+        const r = UrlFetchApp.fetch(vps.url + '/' + path.replace(/^vps:/, ''), { muteHttpExceptions: true });
+        if (r.getResponseCode() === 200) blob = r.getBlob();
+      } catch (e) {}
+    }
     withLock_(() => {
       const v = byId_('Volunteers', id);
       if (!v) return;
-      let photo = '';
+      let photo = /^vps:/.test(v.photo || '') ? '' : v.photo;
       if (blob) {
         const file = photoFolder_().createFile(blob.setName(v.reg_no + '-' + path.split('/').pop()));
         try { file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW); } catch (e) {}
         photo = 'drive:' + file.getId();
       }
-      update_('Volunteers', v, { photo: photo });
+      update_('Volunteers', v, { photo: photo, client_id: String(v.client_id).replace('vps-import:', 'vps-done:') });
       ((detail && detail.remarks) || []).slice().reverse().forEach((r) => insert_('Remarks', { entity_type: 'volunteer', entity_id: id, body: r.body, author: r.author, created_at: r.created_at }));
     });
     done++;

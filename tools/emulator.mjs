@@ -11,6 +11,7 @@ import path from 'node:path';
 import vm from 'node:vm';
 import crypto from 'node:crypto';
 import { fileURLToPath } from 'node:url';
+import { spawnSync } from 'node:child_process';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const SITE_PORT = +(process.env.SITE_PORT || 8787), API_PORT = +(process.env.API_PORT || 8788);
@@ -119,14 +120,32 @@ const sandbox = {
   LockService: { getScriptLock: () => ({ waitLock: () => {}, releaseLock: () => {} }) },
   CacheService: { getScriptCache: () => ({ get: (k) => cache.get(k) ?? null, put: (k, v) => cache.set(k, v), remove: (k) => cache.delete(k) }) },
   PropertiesService: { getScriptProperties: () => ({ getProperty: (k) => props.get(k) ?? null, setProperty: (k, v) => props.set(k, String(v)),
-    setProperties: (o) => Object.entries(o).forEach(([k, v]) => props.set(k, String(v))), getProperties: () => Object.fromEntries(props) }) },
-  UrlFetchApp: { fetch: () => ({ getResponseCode: () => 503, getContentText: () => '' }) },   // offline: translation falls back
+    setProperties: (o) => Object.entries(o).forEach(([k, v]) => props.set(k, String(v))), getProperties: () => Object.fromEntries(props), deleteProperty: (k) => props.delete(k) }) },
+  // Offline by default (translation falls back). REAL_FETCH=https://old.site REAL_FETCH_TO=http://127.0.0.1 sends
+  // requests for that site through curl, so the "import from the old website" code can be tested locally.
+  UrlFetchApp: { fetch: (url, o = {}) => {
+    const from = process.env.REAL_FETCH, to = process.env.REAL_FETCH_TO;
+    if (!from || !url.startsWith(from)) return { getResponseCode: () => 503, getContentText: () => '' };
+    const host = new URL(from).host;
+    const args = ['-s', '-i', '-X', (o.method || 'get').toUpperCase(), '-H', 'Host: ' + host];
+    Object.entries(o.headers || {}).forEach(([k, v]) => args.push('-H', `${k}: ${v}`));
+    if (o.payload !== undefined) args.push('-H', 'Content-Type: ' + (o.contentType || 'application/x-www-form-urlencoded'), '--data-binary', '@-');
+    args.push(url.replace(from, to));
+    const r = spawnSync('curl', args, { input: o.payload !== undefined ? String(o.payload) : undefined, maxBuffer: 50e6 });
+    const raw = r.stdout; const cut = raw.indexOf('\r\n\r\n');
+    const head = raw.slice(0, cut).toString('latin1').split('\r\n'); const body = raw.slice(cut + 4);
+    const code = +head[0].split(' ')[1];
+    const cookies = head.filter((h) => /^set-cookie:/i.test(h)).map((h) => h.slice(11).trim());
+    const ctype = (head.find((h) => /^content-type:/i.test(h)) || ':application/octet-stream').split(':')[1].trim();
+    return { getResponseCode: () => code, getContentText: () => body.toString('utf8'), getAllHeaders: () => ({ 'Set-Cookie': cookies }),
+      getBlob: () => Utilities.newBlob([...body], ctype, 'file') };
+  } },
   LanguageApp: { translate: () => { throw new Error('offline'); } },
   ContentService: { MimeType: { JSON: 'json' }, createTextOutput: (s) => ({ content: s, setMimeType() { return this; } }) },
   ScriptApp: { getProjectTriggers: () => [], deleteTrigger: () => {}, newTrigger: () => { const b = { timeBased: () => b, everyMinutes: () => b, everyDays: () => b, atHour: () => b, after: () => b, create: () => ({}) }; return b; } },
 };
 vm.createContext(sandbox);
-vm.runInContext(fs.readFileSync(path.join(ROOT, 'apps-script/Code.gs'), 'utf8') + '\n;globalThis.__api = { doGet, doPost, setup, refreshReadable };', sandbox, { filename: 'Code.gs' });
+vm.runInContext(fs.readFileSync(path.join(ROOT, 'apps-script/Code.gs'), 'utf8') + '\n;globalThis.__api = { doGet, doPost, setup, refreshReadable, importFromVps, importPhotosAndRemarks };', sandbox, { filename: 'Code.gs' });
 const api = sandbox.__api;
 if (!tabs.has('Volunteers')) console.log(api.setup());
 // ADMIN_PASS=... sets a known password for the first admin (for tests)
@@ -158,7 +177,13 @@ http.createServer((req, res) => {
 http.createServer((req, res) => {
   const u = new URL(req.url, 'http://x');
   const cors = { 'Access-Control-Allow-Origin': '*', 'Content-Type': 'application/json' };
-  if (req.method === 'OPTIONS') { res.writeHead(405, cors); return res.end(); }   // Apps Script has no preflight: the site must not trigger one
+  if (req.method === 'OPTIONS') { res.writeHead(405, cors); return res.end(); }
+  if (u.pathname === '/__run' && process.env.ALLOW_RUN) {   // tests only: run a script function (e.g. importFromVps)
+    const fn = u.searchParams.get('fn');
+    Object.entries(JSON.parse(u.searchParams.get('props') || '{}')).forEach(([k, v]) => props.set(k, v));
+    let out; try { out = String(api[fn]()); } catch (e) { out = 'ERROR ' + e.message; }
+    save(); res.writeHead(200, cors); return res.end(out);
+  }   // Apps Script has no preflight: the site must not trigger one
   let body = '';
   req.on('data', (c) => { body += c; });
   req.on('end', () => {

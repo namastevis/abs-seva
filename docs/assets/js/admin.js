@@ -22,6 +22,13 @@ async function init() {
 
   $('#login-form').addEventListener('submit', onLogin);
   $('#logout-btn').addEventListener('click', () => { setToken(''); location.reload(); });
+  $('#pw-btn').addEventListener('click', async () => {
+    const current = prompt(t('pw_current')); if (!current) return;
+    const password = prompt(t('pw_new')); if (!password) return;
+    if (prompt(t('pw_again')) !== password) return toast(t('pw_mismatch'), 4000);
+    try { const r = await apiPost('change_password', { current, password }); setToken(r.token); toast(t('saved')); }
+    catch (e) { toast(e.message || t('error_generic'), 5000); }
+  });
   $$('.tab').forEach((b) => b.addEventListener('click', () => switchTab(b.dataset.tab)));
   wireFilters();
   wireBulk();
@@ -50,7 +57,7 @@ async function onLogin(e) {
 async function enterDashboard(me) {
   S.me = me;
   ['edit', 'print', 'lists', 'delete'].forEach((p) => document.body.classList.toggle('can-' + p, can(p)));
-  $('#login-screen').hidden = true; $('#dash').hidden = false; $('#logout-btn').hidden = false;
+  $('#login-screen').hidden = true; $('#dash').hidden = false; $('#logout-btn').hidden = false; $('#pw-btn').hidden = false;
   const who = $('#who'); who.hidden = false;
   who.textContent = `${me.user} · ${t('role_' + me.role)}${me.scope_name ? ' · ' + me.scope_name : ''}`;
   await refresh();

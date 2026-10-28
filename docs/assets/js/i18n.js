@@ -324,6 +324,7 @@ const T = {
 // v3 (Oct 2026): reference persons, volunteers editing their own registration
 const T3 = {
   en: {
+    change_password: 'Password', pw_current: 'Current password', pw_new: 'New password (at least 8 characters)', pw_again: 'New password again', pw_mismatch: 'The two new passwords are different.',
     role_super: 'Super admin', role_coordinator: 'Coordinator', role_desk: 'Card desk', role_viewer: 'Viewer',
     reference: 'Reference person', reference_hint: 'A Bibhagiya Sadasya and/or Zilla Sadasya who knows you',
     bs: 'Bibhagiya Sadasya', zs: 'Zilla Sadasya', ref_ph: 'Type a name or place',
@@ -343,6 +344,7 @@ const T3 = {
     stat_reprint: 'Changed after card printed', reference_short: 'Reference',
   },
   or: {
+    change_password: 'ପାସୱାର୍ଡ', pw_current: 'ବର୍ତ୍ତମାନର ପାସୱାର୍ଡ', pw_new: 'ନୂଆ ପାସୱାର୍ଡ (ଅତି କମରେ ୮ ଅକ୍ଷର)', pw_again: 'ନୂଆ ପାସୱାର୍ଡ ପୁଣି', pw_mismatch: 'ଦୁଇଟି ନୂଆ ପାସୱାର୍ଡ ଅଲଗା।',
     role_super: 'ସୁପର ଆଡମିନ୍', role_coordinator: 'ସଂଯୋଜକ', role_desk: 'କାର୍ଡ ଡେସ୍କ', role_viewer: 'ଦର୍ଶକ',
     reference: 'ପରିଚିତ ବ୍ୟକ୍ତି', reference_hint: 'ଆପଣଙ୍କୁ ଜାଣିଥିବା ଜଣେ ବିଭାଗୀୟ ସଦସ୍ୟ ଏବଂ/କିମ୍ବା ଜିଲ୍ଲା ସଦସ୍ୟ',
     bs: 'ବିଭାଗୀୟ ସଦସ୍ୟ', zs: 'ଜିଲ୍ଲା ସଦସ୍ୟ', ref_ph: 'ନାମ କିମ୍ବା ସ୍ଥାନ ଲେଖନ୍ତୁ',
@@ -359,6 +361,7 @@ const T3 = {
     wa_text: 'ଜୟଗୁରୁ! ୧୧୨ତମ ସାର୍ବଭୌମ ଭକ୍ତ ସମ୍ମିଳନୀ ପାଇଁ ମୋର ସ୍ୱେଚ୍ଛାସେବୀ ପଞ୍ଜୀକରଣ: {reg} ({name})। ଦେଖିବା ବା ବଦଳାଇବା ପାଇଁ: {url}',
   },
   bn: {
+    change_password: 'পাসওয়ার্ড', pw_current: 'বর্তমান পাসওয়ার্ড', pw_new: 'নতুন পাসওয়ার্ড (অন্তত ৮ অক্ষর)', pw_again: 'নতুন পাসওয়ার্ড আবার', pw_mismatch: 'দুটি নতুন পাসওয়ার্ড আলাদা।',
     role_super: 'সুপার অ্যাডমিন', role_coordinator: 'সমন্বয়ক', role_desk: 'কার্ড ডেস্ক', role_viewer: 'দর্শক',
     reference: 'পরিচিত ব্যক্তি', reference_hint: 'আপনাকে চেনেন এমন একজন বিভাগীয় সদস্য এবং/অথবা জেলা সদস্য',
     bs: 'বিভাগীয় সদস্য', zs: 'জেলা সদস্য', ref_ph: 'নাম বা স্থান লিখুন',
@@ -375,6 +378,7 @@ const T3 = {
     wa_text: 'জয়গুরু! ১১২তম সার্বভৌম ভক্ত সম্মিলনীর জন্য আমার স্বেচ্ছাসেবক নিবন্ধন: {reg} ({name})। দেখতে বা বদলাতে: {url}',
   },
   hi: {
+    change_password: 'पासवर्ड', pw_current: 'मौजूदा पासवर्ड', pw_new: 'नया पासवर्ड (कम से कम 8 अक्षर)', pw_again: 'नया पासवर्ड दोबारा', pw_mismatch: 'दोनों नए पासवर्ड अलग हैं।',
     role_super: 'सुपर एडमिन', role_coordinator: 'समन्वयक', role_desk: 'कार्ड डेस्क', role_viewer: 'दर्शक',
     reference: 'परिचित व्यक्ति', reference_hint: 'आपको जानने वाले एक विभागीय सदस्य और/या ज़िला सदस्य',
     bs: 'विभागीय सदस्य', zs: 'ज़िला सदस्य', ref_ph: 'नाम या स्थान लिखें',
@@ -391,6 +395,7 @@ const T3 = {
     wa_text: 'जयगुरु! 112वें सार्वभौम भक्त सम्मिलनी के लिए मेरा स्वयंसेवक पंजीकरण: {reg} ({name})। देखने या बदलने के लिए: {url}',
   },
   as: {
+    change_password: 'পাছৱৰ্ড', pw_current: 'বৰ্তমানৰ পাছৱৰ্ড', pw_new: 'নতুন পাছৱৰ্ড (অতি কমেও ৮টা আখৰ)', pw_again: 'নতুন পাছৱৰ্ড আকৌ', pw_mismatch: 'দুয়োটা নতুন পাছৱৰ্ড বেলেগ।',
     role_super: 'ছুপাৰ এডমিন', role_coordinator: 'সমন্বয়ক', role_desk: 'কাৰ্ড ডেস্ক', role_viewer: 'দৰ্শক',
     reference: 'চিনাকি ব্যক্তি', reference_hint: 'আপোনাক চিনি পোৱা এজন বিভাগীয় সদস্য আৰু/বা জিলা সদস্য',
     bs: 'বিভাগীয় সদস্য', zs: 'জিলা সদস্য', ref_ph: 'নাম বা ঠাই লিখক',

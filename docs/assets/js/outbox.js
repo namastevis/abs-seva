@@ -35,8 +35,9 @@ export async function flush(send) {
         await send({ ...item, force: true });   // duplicates were already confirmed on the device
         await remove(item.client_id); sent++;
       } catch (e) {
-        if (e && e.status && e.status >= 400 && e.status < 500 && e.status !== 409) await remove(item.client_id);
-        else break;   // still offline / server down: try later
+        // drop only what the server can never accept (invalid form, bad photo); busy (429), offline or down: try later
+        if (e && [400, 413, 422].includes(e.status)) await remove(item.client_id);
+        else break;
       }
     }
   } finally { flushing = false; }
