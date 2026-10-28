@@ -75,12 +75,13 @@ async function loadStructure() {   // one call: ashrams & groups, all lists, num
 const optName = (o) => (o && ((o.name_i18n && o.name_i18n[getLang()]) || o.name)) || '';
 /** Label for a volunteer's list answer: the list name, or the words they typed for "Other". */
 function answer(v, kind) {
-  if (kind === 'ashram') return v.sangha_id ? sanghaName({ name: v.sangha_name, name_i18n: v.sangha_i18n }) : (v.ashram_other ? `<i class="typed">${esc(v.ashram_other)}</i>` : '');
+  if (kind === 'ashram') return v.sangha_id ? esc(sanghaName({ name: v.sangha_name, name_i18n: v.sangha_i18n })) : (v.ashram_other ? `<i class="typed">${esc(v.ashram_other)}</i>` : '');
   if (kind === 'sangha') return v.lsangha_id ? esc(optName({ name: v.lsangha_name, name_i18n: v.lsangha_i18n })) : (v.lsangha_other ? `<i class="typed">${esc(v.lsangha_other)}</i>` : '');
   if (kind === 'bs' || kind === 'zs') return v[kind + '_id'] ? esc(v[kind + '_name']) + (v[kind + '_area'] ? ` <span class="muted small">(${esc(v[kind + '_area'])})</span>` : '') : (v[kind + '_other'] ? `<i class="typed">${esc(v[kind + '_other'])}</i>` : '');
   return v.seva_id ? esc(optName({ name: v.seva_name, name_i18n: v.seva_i18n })) : (v.seva_other ? `<i class="typed">${esc(v.seva_other)}</i>` : '');
 }
-const plain = (html) => { const d = document.createElement('div'); d.innerHTML = html; return d.textContent; };
+// text of an HTML snippet, parsed in an inert document (no scripts, no image loads)
+const plain = (html) => new DOMParser().parseFromString(html, 'text/html').body.textContent || '';
 async function loadStats() { S.stats = await apiGet('stats'); renderStats(S.stats); }
 async function loadVolunteers() {
   const r = await apiGet('volunteers', F);
@@ -191,12 +192,12 @@ function renderTable() {
       <td>${answer(v, 'seva')}${v.bs_id || v.bs_other || v.zs_id || v.zs_other ? `<div class="sub small">${t('reference_short')}: ${[answer(v, 'bs'), answer(v, 'zs')].filter(Boolean).join(', ')}</div>` : ''}</td>
       <td>${v.group_name ? esc(v.group_name) : `<span class="badge none">${t('no_group')}</span>`}</td>
       <td>${v.age ?? ''}</td>
-      <td class="nowrap"><a href="tel:+91${esc(v.mobile)}" onclick="event.stopPropagation()">${esc(v.mobile)}</a></td>
+      <td class="nowrap"><a href="tel:+91${esc(v.mobile)}" class="tel-link">${esc(v.mobile)}</a></td>
       <td><span class="badge lang">${langInfo(v.language).native}</span></td>
       <td class="nowrap muted small">${fmtDate(v.created_at)}</td>
     </tr>`).join('');
   $$('tr[data-id]', body).forEach((tr) => tr.addEventListener('click', (e) => {
-    if (e.target.matches('input[type=checkbox]')) return;
+    if (e.target.matches('input[type=checkbox]') || e.target.closest('.tel-link')) return;
     openVolunteer(+tr.dataset.id);
   }));
   $$('[data-sel]', body).forEach((cb) => cb.addEventListener('change', () => {

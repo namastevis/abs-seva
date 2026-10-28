@@ -130,7 +130,7 @@ vm.runInContext(fs.readFileSync(path.join(ROOT, 'apps-script/Code.gs'), 'utf8') 
 const api = sandbox.__api;
 if (!tabs.has('Volunteers')) console.log(api.setup());
 // ADMIN_PASS=... sets a known password for the first admin (for tests)
-if (process.env.ADMIN_PASS) { const a = tabs.get('Admins'); a.rows[1][1] = process.env.ADMIN_PASS; }
+if (process.env.ADMIN_PASS) { const a = tabs.get('Admins'); if (!/^hash:/.test(a.rows[1][1] || '')) a.rows[1][1] = process.env.ADMIN_PASS; }
 export function admins() { return tabs.get('Admins').rows; }
 
 /* ---------- HTTP ---------- */
@@ -148,11 +148,12 @@ http.createServer((req, res) => {
     res.writeHead(200, { 'Content-Type': 'text/javascript' });
     return res.end(`window.SEVA_API = 'http://${req.headers.host.split(':')[0]}:${API_PORT}/exec'; window.SEVA_PHOTO_URL = '/photos/{id}';`);
   }
+  if (!file.startsWith(path.join(ROOT, 'docs') + path.sep) && file !== path.join(ROOT, 'docs')) { res.writeHead(403); return res.end(); }
   if (fs.existsSync(file) && fs.statSync(file).isDirectory()) file = path.join(file, 'index.html');
   if (!fs.existsSync(file)) { res.writeHead(404); return res.end('not found'); }
   res.writeHead(200, { 'Content-Type': MIME[path.extname(file)] || 'application/octet-stream', 'Cache-Control': 'no-store' });
   res.end(fs.readFileSync(file));
-}).listen(SITE_PORT);
+}).listen(SITE_PORT, '127.0.0.1');
 
 http.createServer((req, res) => {
   const u = new URL(req.url, 'http://x');
@@ -166,5 +167,5 @@ http.createServer((req, res) => {
     save();
     res.writeHead(200, cors); res.end(out.content);
   });
-}).listen(API_PORT);
+}).listen(API_PORT, '127.0.0.1');
 console.log(`site http://localhost:${SITE_PORT}  api http://localhost:${API_PORT}/exec`);

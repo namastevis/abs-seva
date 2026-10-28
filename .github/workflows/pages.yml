@@ -8,12 +8,6 @@ on:
 
 permissions:
   contents: read
-  pages: write
-  id-token: write
-
-concurrency:
-  group: pages
-  cancel-in-progress: false
 
 jobs:
   check:
@@ -30,20 +24,27 @@ jobs:
           cp apps-script/Code.gs /tmp/Code.js && node --check /tmp/Code.js
       - name: Smoke test against the local Sheets emulator
         run: |
-          ADMIN_PASS=ci-pass STATE=/tmp/ci.json node tools/emulator.mjs > /tmp/emu.log 2>&1 &
+          ADMIN_PASS=ci-pass-1234 STATE=/tmp/ci.json node tools/emulator.mjs > /tmp/emu.log 2>&1 &
           sleep 3
           A=http://localhost:8788/exec
           curl -fsS -X POST "$A?r=health" -d '{}' | grep -q '"ok":true'
           curl -fsS -X POST "$A?r=config" -d '{}' | grep -q '"sevas"'
           curl -fsS -X POST "$A?r=register" -d '{"name":"CI Test","mobile":"9000000001","age":30,"gender":"Male","sangha_id":1,"seva_id":1,"address":"CI Street","language":"en"}' | grep -q 'ABSM-'
           curl -fsS -X POST "$A?r=volunteers" -d '{}' | grep -q '"status":401'
-          curl -fsS -X POST "$A?r=login" -d '{"username":"superadmin","password":"ci-pass"}' | grep -q '"token"'
+          curl -fsS -X POST "$A?r=login" -d '{"username":"superadmin","password":"ci-pass-1234"}' | grep -q '"token"'
           echo "Smoke test passed"
 
   publish:
     needs: check
     if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    concurrency:
+      group: pages
+      cancel-in-progress: false
     environment:
       name: github-pages
       url: ${{ steps.deploy.outputs.page_url }}

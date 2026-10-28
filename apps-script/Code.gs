@@ -151,7 +151,13 @@ function writeRow_(t, rowNo, obj) {
 }
 function insert_(name, obj) {
   const t = table_(name);
-  if (t.head.indexOf('id') >= 0 && !obj.id) obj.id = t.rows.reduce((m, r) => Math.max(m, r.id || 0), 0) + 1;
+  if (t.head.indexOf('id') >= 0) {
+    // ids are never reused (a deleted volunteer's number is not handed to someone else): a counter per tab
+    const key = 'NEXT_ID_' + name;
+    const maxId = t.rows.reduce((m, r) => Math.max(m, r.id || 0), 0);
+    if (!obj.id) obj.id = Math.max(Number(props_().getProperty(key)) || 0, maxId + 1);
+    props_().setProperty(key, String(Math.max(Number(props_().getProperty(key)) || 0, obj.id + 1)));
+  }
   const rowNo = Math.max(t.sh.getLastRow(), 1) + 1;
   writeRow_(t, rowNo, obj);
   obj._row = rowNo;
@@ -162,6 +168,15 @@ function update_(name, obj, patch) {
   Object.assign(obj, patch || {});
   writeRow_(table_(name), obj._row, obj);
   return obj;
+}
+/** Append many rows with one write (used where a request may add many). */
+function insertMany_(name, objs) {
+  if (!objs.length) return;
+  const t = table_(name);
+  const start = Math.max(t.sh.getLastRow(), 1) + 1;
+  if (start + objs.length - 1 > t.sh.getMaxRows()) t.sh.insertRowsAfter(t.sh.getMaxRows(), objs.length + 100);
+  t.sh.getRange(start, 1, objs.length, t.head.length).setNumberFormat('@').setValues(objs.map((o) => t.head.map((h) => cellOut_(o[h]))));
+  objs.forEach((o, i) => { o._row = start + i; t.rows.push(o); });
 }
 function remove_(name, obj) {
   const t = table_(name);
@@ -191,6 +206,17 @@ function toAscii_(s) {
     return String(cp - (cp >= 0x0B66 ? 0x0B66 : cp >= 0x09E6 ? 0x09E6 : 0x0966));
   });
 }
+/** Simple counters in CacheService for rate limits. throttle_ → false when the limit is reached. */
+function throttle_(key, limit, seconds, peek) {
+  const n = Number(CacheService.getScriptCache().get('rl:' + key) || 0);
+  return n < limit;
+}
+function hit_(key, seconds) {
+  const c = CacheService.getScriptCache();
+  const n = Number(c.get('rl:' + key) || 0) + 1;
+  c.put('rl:' + key, String(n), seconds);
+  return n;
+}
 function regNo_(id) { return CONFIG.REG_PREFIX + '-' + CONFIG.EVENT_YEAR + '-' + ('0000' + id).slice(-Math.max(4, String(id).length)); }
 function i18nOf_(row) {
   const o = {};
@@ -208,6 +234,7 @@ function sign_(payload) {
   const sig = Utilities.base64EncodeWebSafe(Utilities.computeHmacSha256Signature(body, secret_()));
   return body + '.' + sig;
 }
+function editToken_(v, exp) { return sign_({ kind: 'edit', id: v.id, c: v.created_at, m: String(v.mobile), exp: exp }); }
 function verify_(token) {
   const p = String(token || '').split('.');
   if (p.length !== 2) return null;
@@ -218,7 +245,39 @@ function verify_(token) {
   return data && data.exp > Date.now() ? data : null;
 }
 
-/* ---------- admins (Admins tab) ---------- */
+/* ---------- admins (Admins tab) ----------
+   Passwords: type a new password into the Admins tab and it is replaced by a salted hash
+   within seconds (onEdit), so the Sheet and its backups never hold readable passwords. */
+const MIN_PASSWORD = 8;
+function hashPassword_(plain, salt) {
+  salt = salt || Utilities.getUuid().replace(/-/g, '').slice(0, 16);
+  let h = plain;
+  for (let i = 0; i < 1000; i++) h = Utilities.base64EncodeWebSafe(Utilities.computeHmacSha256Signature(h, salt));
+  return 'hash:' + salt + ':' + h;
+}
+function passwordOk_(stored, given) {
+  stored = String(stored || ''); given = String(given || '');
+  if (given.length < MIN_PASSWORD) return false;
+  const m = /^hash:([^:]+):(.+)$/.exec(stored);
+  if (m) return hashPassword_(given, m[1]) === stored;
+  return stored.length >= MIN_PASSWORD && stored === given;   // not hashed yet: login hashes it (below)
+}
+/** Replace any plain-text password in the Admins tab by its hash. */
+function hashAdminPasswords() {
+  const t = table_('Admins');
+  t.rows.forEach((a) => {
+    const pw = String(a.password || '');
+    if (pw && !/^hash:/.test(pw)) update_('Admins', a, { password: pw.length >= MIN_PASSWORD ? hashPassword_(pw) : '', note: pw.length >= MIN_PASSWORD ? a.note : 'Password too short (min ' + MIN_PASSWORD + ' characters) — type a longer one' });
+  });
+}
+/** Simple trigger: runs when someone edits the Sheet by hand. */
+function onEdit(e) {
+  try {
+    if (e && e.range && e.range.getSheet().getName() === 'Admins') { _db = {}; hashAdminPasswords(); }
+    else if (e && e.range && e.range.getSheet().getName() === 'Lists' || e && e.range && e.range.getSheet().getName() === 'Ashrams') clearConfigCache_();
+  } catch (err) { console.warn(err); }
+}
+function pwVersion_(a) { return Utilities.base64EncodeWebSafe(Utilities.computeHmacSha256Signature(String(a.password), secret_())).slice(0, 12); }
 function admins_() {
   const ashrams = table_('Ashrams').rows;
   return table_('Admins').rows.map((a) => {
@@ -241,10 +300,17 @@ function requireAdmin_(b, perm) {
   if (!t || t.kind !== 'admin') fail_('Please log in', 401);
   const a = admins_().find((x) => x.username.toLowerCase() === String(t.u).toLowerCase());
   if (!a) fail_('Please log in', 401);   // removed or deactivated in the Admins tab
+  if (t.pv !== pwVersion_(a)) fail_('Please log in', 401);   // password changed since this login
   if (perm && ROLES[a.role].indexOf(perm) < 0) fail_('Your role does not allow this', 403);
   return a;
 }
-function inScope_(admin, v) { return !admin.scope || (v && v.sangha_id === admin.scope); }
+function inScope_(admin, v) { return !!v && (!admin.scope || v.sangha_id === admin.scope); }
+function entityInScope_(admin, type, id) {
+  if (type === 'volunteer') return inScope_(admin, byId_('Volunteers', id));
+  if (type === 'group') { const g = byId_('Groups', id); return !!g && (!admin.scope || g.sangha_id === admin.scope); }
+  if (type === 'sangha') return !!byId_('Ashrams', id) && (!admin.scope || id === admin.scope);
+  return false;
+}
 
 /* =================================================================
    Routes
@@ -275,11 +341,6 @@ function route_(r, b) {
     return { ok: en !== null, english: en };
   }
 
-  case 'check_mobile': {
-    const m = String(b.m || '').replace(/\D/g, '');
-    return { ok: true, exists: table_('Volunteers').rows.some((v) => String(v.mobile) === m) };
-  }
-
   case 'register':
     return withLock_(() => {
       const vols = table_('Volunteers').rows;
@@ -289,7 +350,11 @@ function route_(r, b) {
         if (dupe) return { ok: true, id: dupe.id, reg_no: dupe.reg_no, replayed: true };
       }
       const v = volunteerInput_(b);
-      if (!b.force && vols.some((x) => String(x.mobile) === v.mobile)) fail_('duplicate_mobile', 409, { duplicate: true });
+      if (!throttle_('reg:all', 120, 60)) fail_('Too many registrations right now. Please try again in a minute.', 429);
+      const same = vols.filter((x) => String(x.mobile) === v.mobile).length;
+      if (same && !b.force) fail_('duplicate_mobile', 409, { duplicate: true });
+      if (same >= 3) fail_('This mobile number is already used by 3 registrations. Please contact the organisers.', 429);
+      hit_('reg:all', 60);
       v.photo = savePhoto_(b.photo, null);
       v.client_id = clientId;
       v.created_at = v.updated_at = now_();
@@ -305,20 +370,19 @@ function route_(r, b) {
     const m = /(\d+)\D*$/.exec(toAscii_(b.reg_no));
     const id = m ? Number(m[1]) : 0;
     const mobile = toAscii_(b.mobile).replace(/\D/g, '').slice(-10);
-    const cache = CacheService.getScriptCache();
-    const key = 'fail:' + id;
-    const fails = Number(cache.get(key) || 0);
-    if (fails >= 8) fail_('too_many_attempts', 429);
+    if (!throttle_('lk:id:' + id, 8, 3600) || !throttle_('lk:m:' + mobile, 8, 3600) || !throttle_('lk:all', 300, 3600)) fail_('too_many_attempts', 429);
     const v = id && mobile.length === 10 ? byId_('Volunteers', id) : null;
-    if (!v || String(v.mobile) !== mobile) { cache.put(key, String(fails + 1), 3600); fail_('not_found', 404); }
-    return { ok: true, item: publicVolunteer_(shapeVolunteer_(v)), token: sign_({ kind: 'edit', id: v.id, exp: Date.now() + CONFIG.EDIT_TOKEN_HOURS * 3600e3 }) };
+    if (!v || String(v.mobile) !== mobile) { hit_('lk:id:' + id, 3600); hit_('lk:m:' + mobile, 3600); hit_('lk:all', 3600); fail_('not_found', 404); }
+    return { ok: true, item: publicVolunteer_(shapeVolunteer_(v)), token: editToken_(v, Date.now() + CONFIG.EDIT_TOKEN_HOURS * 3600e3) };
   }
 
   case 'self_update': {
     const t = verify_(b.token);
     if (!t || t.kind !== 'edit') fail_('expired', 401);
     return withLock_(() => {
-      const before = byId_('Volunteers', t.id) || fail_('not_found', 404);
+      const before = byId_('Volunteers', t.id);
+      // the token belongs to one registration: same record (created_at) and the mobile it was opened with
+      if (!before || before.created_at !== t.c || String(before.mobile) !== t.m) fail_('expired', 401);
       const prev = Object.assign({}, before);
       const v = volunteerInput_(b);
       if (b.photo) {
@@ -335,22 +399,26 @@ function route_(r, b) {
         insert_('Remarks', { entity_type: 'volunteer', entity_id: prev.id, author: 'volunteer', created_at: now_(),
           body: 'Volunteer updated their details: ' + labels.join(', ') + (prev.printed_at ? ' (ID card was already printed)' : '') });
       }
-      return { ok: true, changed: changed, item: publicVolunteer_(shapeVolunteer_(before)),
-               token: sign_({ kind: 'edit', id: prev.id, exp: Date.now() + CONFIG.EDIT_TOKEN_HOURS * 3600e3 }) };
+      return { ok: true, changed: changed, item: publicVolunteer_(shapeVolunteer_(before)), token: editToken_(before, t.exp) };   // never extended
     });
   }
 
   /* ---------------- admin: session ---------------- */
   case 'login': {
     const u = str_(b.username, 80).toLowerCase();
-    const a = admins_().find((x) => x.username.toLowerCase() === u);
-    if (!a || a.password !== String(b.password || '')) { Utilities.sleep(500); fail_('Wrong username or password', 401); }
-    return Object.assign({ ok: true, token: sign_({ kind: 'admin', u: a.username, exp: Date.now() + CONFIG.TOKEN_HOURS * 3600e3 }) }, adminPublic_(a));
+    if (!throttle_('login:' + u, 10, 900) || !throttle_('login:all', 100, 900, true)) fail_('Too many attempts. Try again in 15 minutes.', 429);
+    let a = admins_().find((x) => x.username.toLowerCase() === u);
+    if (!a || !passwordOk_(a.password, b.password)) { hit_('login:' + u, 900); hit_('login:all', 900); Utilities.sleep(500); fail_('Wrong username or password', 401); }
+    if (!/^hash:/.test(a.password)) {   // first login with a typed password: store its hash instead
+      withLock_(() => hashAdminPasswords());
+      a = admins_().find((x) => x.username.toLowerCase() === u);
+    }
+    return Object.assign({ ok: true, token: sign_({ kind: 'admin', u: a.username, pv: pwVersion_(a), exp: Date.now() + CONFIG.TOKEN_HOURS * 3600e3 }) }, adminPublic_(a));
   }
   case 'me': {
     const t = verify_(b.token);
     const a = t && t.kind === 'admin' ? admins_().find((x) => x.username.toLowerCase() === String(t.u).toLowerCase()) : null;
-    return a ? Object.assign({ ok: true }, adminPublic_(a)) : { ok: false, user: null };
+    return a && t.pv === pwVersion_(a) ? Object.assign({ ok: true }, adminPublic_(a)) : { ok: false, user: null };
   }
   case 'logout':
     return { ok: true };
@@ -473,7 +541,8 @@ function route_(r, b) {
     return withLock_(() => {
       const a = requireAdmin_(b, 'edit');
       let g = b.id ? byId_('Groups', b.id) : null;
-      const sid = Number(b.sangha_id) || (g && g.sangha_id) || 0;
+      if (b.id && !g) fail_('Not found', 404);
+      const sid = g ? g.sangha_id : (Number(b.sangha_id) || 0);   // an existing group stays in its ashram
       if (!sid) fail_('Ashram required');
       if (a.scope && sid !== a.scope) fail_('You can only manage your own ashram', 403);
       const name = str_(b.name, 120);
@@ -484,9 +553,11 @@ function route_(r, b) {
       if ('leader_id' in b) {
         const lid = b.leader_id ? Number(b.leader_id) : null;
         if (lid) {   // a leader is always a member of their group (and its ashram)
-          clearLeader_(lid);
           const v = byId_('Volunteers', lid);
-          if (v) update_('Volunteers', v, { group_id: g.id, sangha_id: sid, updated_at: now_() });
+          if (!v || !inScope_(a, v)) fail_('Not found', 404);
+          if (a.scope && v.sangha_id !== sid) fail_('You can only manage your own ashram', 403);
+          clearLeader_(lid);
+          update_('Volunteers', v, { group_id: g.id, sangha_id: sid, updated_at: now_() });
         }
         update_('Groups', g, { leader_id: lid });
       }
@@ -506,6 +577,7 @@ function route_(r, b) {
     return withLock_(() => {
       const a = requireAdmin_(b, 'edit');
       if (['sangha', 'group', 'volunteer'].indexOf(b.entity_type) < 0) fail_('Bad type');
+      if (!entityInScope_(a, b.entity_type, Number(b.entity_id))) fail_('Not found', 404);
       const body = str_(b.body, 2000);
       if (!body) fail_('Remark is empty');
       const r = insert_('Remarks', { entity_type: b.entity_type, entity_id: Number(b.entity_id) || 0, body: body, author: a.username, created_at: now_() });
@@ -513,9 +585,12 @@ function route_(r, b) {
     });
   case 'remark_delete':
     return withLock_(() => {
-      requireAdmin_(b, 'edit');
+      const a = requireAdmin_(b, 'edit');
       const r = byId_('Remarks', b.id);
-      if (r) remove_('Remarks', r);
+      if (!r || !entityInScope_(a, r.entity_type, r.entity_id)) fail_('Not found', 404);
+      // coordinators remove only their own notes; the automatic history (volunteer edits, merges) only a super admin
+      if (a.role !== 'super' && r.author !== a.username) fail_('You can only delete your own remarks', 403);
+      remove_('Remarks', r);
       return { ok: true };
     });
 
@@ -638,18 +713,23 @@ function route_(r, b) {
   }
   case 'dup_dismiss':   // "not the same person"
     return withLock_(() => {
-      requireAdmin_(b, 'edit');
+      const a = requireAdmin_(b, 'edit');
       const ids = (b.ids || []).map(Number).filter(Boolean).sort((x, y) => x - y);
+      if (ids.length < 2 || ids.length > 20) fail_('Choose 2 to 20 registrations');
+      if (!ids.every((id) => inScope_(a, byId_('Volunteers', id)))) fail_('Not found', 404);
       const have = {};
       table_('NotDuplicates').rows.forEach((d) => { have[d.a + '-' + d.b] = true; });
+      const add = [];
       for (let i = 0; i < ids.length; i++) for (let j = i + 1; j < ids.length; j++)
-        if (!have[ids[i] + '-' + ids[j]]) insert_('NotDuplicates', { a: ids[i], b: ids[j], created_at: now_() });
+        if (!have[ids[i] + '-' + ids[j]]) add.push({ a: ids[i], b: ids[j], created_at: now_() });
+      insertMany_('NotDuplicates', add);
       return { ok: true };
     });
   case 'merge':   // keep one registration, move remarks/leadership over, delete the rest
     return withLock_(() => {
       const a = requireAdmin_(b, 'delete');
-      const keep = byId_('Volunteers', b.keep) || fail_('Not found', 404);
+      const keep = byId_('Volunteers', b.keep);
+      if (!inScope_(a, keep)) fail_('Not found', 404);
       const drop = (b.remove || []).map(Number).filter((x) => x && x !== keep.id);
       if (!drop.length) fail_('Nothing to merge');
       drop.forEach((d) => {
@@ -953,11 +1033,11 @@ function findDuplicates_(admin, withPeople) {
 /** Counting duplicates compares every pair of volunteers; cache the number for a minute. */
 function dupCount_(admin) {
   const cache = CacheService.getScriptCache();
-  const key = 'dups:' + (admin.scope || 'all') + ':' + table_('Volunteers').rows.length + ':' + table_('NotDuplicates').rows.length;
+  const key = 'dups:' + (admin.scope || 'all');
   const hit = cache.get(key);
   if (hit !== null && hit !== undefined) return Number(hit);
   const n = findDuplicates_(admin, false).length;
-  cache.put(key, String(n), 60);
+  cache.put(key, String(n), 120);
   return n;
 }
 function lev_(a, b) {
@@ -996,11 +1076,11 @@ function setup() {
   if (!lists.rows.some((o) => o.kind === 'bs' || o.kind === 'zs')) {
     SEED.sadasyas.forEach(([kind, name, area], i) => insert_('Lists', { kind: kind, name: name, location: area, sort_order: (i + 1) * 10, active: 1, created_at: now }));
   }
-  let password = '';
   if (!table_('Admins').rows.length) {
-    password = Utilities.getUuid().replace(/-/g, '').slice(0, 10);
-    insert_('Admins', { username: 'superadmin', password: password, role: 'Super admin', ashram: '', active: 'yes', note: 'Created by setup — change this password' });
+    insert_('Admins', { username: 'superadmin', password: '', role: 'Super admin', ashram: '', active: 'yes',
+      note: 'Type a password (8+ characters) in the password cell. It is replaced by a code at once, so nobody can read it back.' });
   }
+  hashAdminPasswords();
   const adm = table_('Admins').sh;
   adm.getRange('C2:C500').setDataValidation(SpreadsheetApp.newDataValidation()
     .requireValueInList(['Super admin', 'Coordinator', 'Card desk', 'Viewer'], true).setAllowInvalid(false).build());
@@ -1017,7 +1097,7 @@ function setup() {
   ScriptApp.newTrigger('backupSheet').timeBased().everyDays(1).atHour(2).create();
   refreshReadable();
   SpreadsheetApp.flush();
-  const msg = 'Setup complete.' + (password ? '\nAdmin login → username: superadmin   password: ' + password + '\n(It is also in the Admins tab. Change it there any time.)' : '');
+  const msg = 'Setup complete. Next: open the Admins tab and type a password (8+ characters) for superadmin.';
   console.log(msg);
   return msg;
 }
@@ -1071,7 +1151,9 @@ function importFromVpsMenu() {
   if (user.getSelectedButton() !== ui.Button.OK) return;
   const pass = ui.prompt('Old admin password', ui.ButtonSet.OK_CANCEL);
   if (pass.getSelectedButton() !== ui.Button.OK) return;
-  props_().setProperties({ VPS_URL: url.getResponseText().trim().replace(/\/+$/, ''), VPS_USER: user.getResponseText().trim(), VPS_PASS: pass.getResponseText() });
+  const vpsUrl = url.getResponseText().trim().replace(/\/+$/, '');
+  if (!/^https:\/\//.test(vpsUrl)) { ui.alert('Please use the https:// address of the old website.'); return; }
+  props_().setProperties({ VPS_URL: vpsUrl, VPS_USER: user.getResponseText().trim(), VPS_PASS: pass.getResponseText() });
   const res = importFromVps();
   ui.alert(res);
 }
@@ -1195,7 +1277,8 @@ function importPhotosAndRemarks() {
     done++;
   }
   refreshReadable();
-  return 'All photos and remarks copied (' + done + ' this round).';
+  props_().deleteProperty('VPS_PASS'); props_().deleteProperty('VPS_USER');   // the old site's login is not kept
+  return 'All photos and remarks copied (' + done + ' this round). The old site\'s login details have been removed from this script.';
 }
 /* Starting lists (loaded by setup). Edit them afterwards in the Sheet or the admin dashboard. */
 const SEED = {"ashrams":[{"name":"Kokilamukh Saraswat Math (Main Math)","location":"Kokilamukh, Jorhat, Assam","i18n":{"or":"କୋକିଳାମୁଖ ସାରସ୍ୱତ ମଠ (ମୁଖ୍ୟ ମଠ)","hi":"कोकिलामुख सारस्वत मठ (मुख्य मठ)","bn":"কোকিলামুখ সারস্বত মঠ (মূল মঠ)","as":"কোকিলামুখ সাৰস্বত মঠ (মূল মঠ)"}},
