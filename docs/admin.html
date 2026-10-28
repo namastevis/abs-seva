@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Admin · Sammilani Volunteers</title>
+  <meta name="robots" content="noindex">
+  <meta name="theme-color" content="#7A1F2B">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icons/icon-192.png?v=2">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans:wght@400;600;700&family=Noto+Sans+Oriya:wght@400;600;700&family=Noto+Sans+Bengali:wght@400;600;700&family=Noto+Sans+Devanagari:wght@400;600;700&family=Noto+Serif:wght@600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/css/app.css">
+  <script src="config.js"></script>
+</head>
+<body class="admin">
+  <header class="topbar">
+    <div class="brand">
+      <img src="icons/icon-192.png?v=2" alt="" class="brand-mark">
+      <div class="brand-text">
+        <div class="brand-app" data-i18n="admin_title"></div>
+        <div class="brand-sub"><span data-i18n="event_name"></span> · <span data-i18n="event_place"></span></div>
+      </div>
+    </div>
+    <div class="topbar-actions">
+      <select id="lang-select" class="btn ghost small" aria-label="Language" style="width:auto;min-height:36px;padding:4px 30px 4px 10px;background-color:rgba(255,255,255,.08);color:#fff"></select>
+      <span class="who" id="who" hidden></span>
+      <button id="logout-btn" class="btn ghost small" hidden data-i18n="logout"></button>
+    </div>
+  </header>
+
+  <main>
+    <!-- Login -->
+    <section id="login-screen" hidden>
+      <form class="card login-card" id="login-form">
+        <h1 data-i18n="login"></h1>
+        <div class="field"><label for="l-user" data-i18n="username"></label><input id="l-user" autocomplete="username" required></div>
+        <div class="field"><label for="l-pass" data-i18n="password"></label><input id="l-pass" type="password" autocomplete="current-password" required></div>
+        <div class="err" id="login-err"></div>
+        <button class="btn primary big" data-i18n="login"></button>
+      </form>
+    </section>
+
+    <!-- Dashboard -->
+    <section id="dash" hidden>
+      <div class="stats" id="stats"></div>
+
+      <div class="tabs" role="tablist">
+        <button class="tab active" data-tab="volunteers" data-i18n="tab_volunteers"></button>
+        <button class="tab" data-tab="dups"><span data-i18n="tab_dups"></span> <span class="tab-count" id="dup-count"></span></button>
+        <button class="tab" data-tab="groups" data-i18n="tab_groups"></button>
+        <button class="tab" data-tab="lists" data-i18n="tab_lists" data-need="lists"></button>
+      </div>
+
+      <!-- Volunteers tab -->
+      <div id="tab-volunteers">
+        <div class="filters">
+          <input class="q" id="f-q" type="search" data-i18n-ph="search_ph">
+          <select id="f-sangha" aria-label="Bibhagiya Ashram"></select>
+          <select id="f-lsangha" aria-label="Sangha"></select>
+          <select id="f-seva" aria-label="Seva"></select>
+          <select id="f-bs" aria-label="Bibhagiya Sadasya"></select>
+          <select id="f-zs" aria-label="Zilla Sadasya"></select>
+          <select id="f-group" aria-label="Group"></select>
+          <select id="f-printed" aria-label="ID card"></select>
+          <select id="f-gender" aria-label="Gender"></select>
+          <select id="f-lang" aria-label="Language"></select>
+        </div>
+        <div class="filters-2">
+          <span class="age"><span data-i18n="age_from"></span> <input id="f-amin" inputmode="numeric" placeholder="10"> – <input id="f-amax" inputmode="numeric" placeholder="100"></span>
+          <label class="check"><input type="checkbox" id="f-leaders"> <span data-i18n="leaders_only"></span></label>
+          <label class="check"><input type="checkbox" id="f-review"> <span data-i18n="review_only"></span></label>
+          <button class="link-btn" id="f-clear" data-i18n="clear_filters"></button>
+          <span class="spacer"></span>
+          <strong id="result-count"></strong>
+          <a class="btn ghost small" id="export-btn" data-i18n="export_csv"></a>
+        </div>
+
+        <div class="bulkbar" id="bulkbar" hidden>
+          <strong id="bulk-count"></strong>
+          <select id="bulk-group" data-need="edit"></select>
+          <button class="btn ghost small" id="bulk-remove" data-i18n="remove_from_group" data-need="edit"></button>
+          <button class="btn ghost small" id="bulk-print" data-need="print">🖨 <span data-i18n="print_cards"></span></button>
+        </div>
+
+        <div class="table-wrap">
+          <table class="vol">
+            <thead><tr>
+              <th class="cb"><input type="checkbox" id="check-all" aria-label="Select all"></th>
+              <th data-i18n="tab_volunteers"></th><th><span data-i18n="sangha"></span> / <span data-i18n="lsangha"></span></th><th data-i18n="seva"></th><th data-i18n="group"></th>
+              <th data-i18n="age"></th><th data-i18n="mobile"></th><th data-i18n="language"></th><th data-i18n="registered_on"></th>
+            </tr></thead>
+            <tbody id="vol-body"></tbody>
+          </table>
+          <div class="empty" id="vol-empty" hidden data-i18n="no_results"></div>
+        </div>
+      </div>
+
+      <!-- Duplicates tab -->
+      <div id="tab-dups" hidden><div id="dup-list" class="dup-list"></div></div>
+
+      <!-- Lists tab: Seva, Sangha, and answers typed as "Other" -->
+      <div id="tab-lists" hidden><div id="lists" class="lists"></div></div>
+
+      <!-- Ashrams & groups tab -->
+      <div id="tab-groups" hidden>
+        <div class="sangha-list" id="sangha-list"></div>
+        <form class="card inline-form" id="add-sangha-form" style="margin-top:16px" data-need="lists">
+          <strong data-i18n="add_sangha"></strong>
+          <input id="new-sangha-name" data-i18n-ph="sangha_name" required>
+          <input id="new-sangha-loc" data-i18n-ph="location">
+          <button class="btn primary small" data-i18n="add_sangha"></button>
+        </form>
+      </div>
+    </section>
+  </main>
+
+  <div class="drawer-backdrop" id="drawer-bg" hidden></div>
+  <aside class="drawer" id="drawer" hidden aria-modal="true" role="dialog">
+    <div class="drawer-head"><strong data-i18n="details"></strong><button class="btn ghost small" id="drawer-close" data-i18n="close"></button></div>
+    <div class="drawer-body" id="drawer-body"></div>
+  </aside>
+
+  <!-- ID card printing -->
+  <div class="modal print-modal" id="print-modal" hidden>
+    <div class="modal-box print-box" role="dialog" aria-modal="true">
+      <div class="print-head"><strong data-i18n="print_title"></strong> <span class="muted" id="print-count"></span>
+        <button class="btn ghost small" id="print-close" data-i18n="close"></button></div>
+      <div class="print-opts">
+        <label><span data-i18n="orientation"></span>
+          <select id="print-orient"><option value="portrait" data-i18n="portrait"></option><option value="landscape" data-i18n="landscape"></option></select></label>
+        <label><span data-i18n="paper"></span>
+          <select id="print-paper"><option value="a4" data-i18n="paper_a4"></option><option value="card" data-i18n="paper_card"></option></select></label>
+        <button class="btn primary" id="print-go">🖨 <span data-i18n="print_now"></span></button>
+      </div>
+      <div class="print-preview" id="print-preview"></div>
+    </div>
+  </div>
+  <div id="print-root" aria-hidden="true"></div>
+  <style id="print-page"></style>
+
+  <div class="toast" id="toast" hidden></div>
+  <script src="vendor/qrcode/qrcode.js"></script>
+  <script type="module" src="assets/js/admin.js"></script>
+</body>
+</html>

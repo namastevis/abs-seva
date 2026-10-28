@@ -1,0 +1,19 @@
+# Used only if the VPS runs Apache (deploy/apache.conf enables AllowOverride).
+# With Nginx, the equivalent rules live in deploy/nginx.conf.
+Options -Indexes
+
+AddType application/wasm .wasm
+AddType application/manifest+json .webmanifest
+AddType application/octet-stream .tflite .binarypb .data
+
+<IfModule mod_headers.c>
+  <FilesMatch "(sw\.js|\.webmanifest|\.html)$">
+    Header set Cache-Control "no-cache"
+  </FilesMatch>
+  <FilesMatch "\.(wasm|tflite|binarypb|data|png|svg)$">
+    Header set Cache-Control "public, max-age=2592000"
+  </FilesMatch>
+  Header always set Permissions-Policy "camera=(self), microphone=(self)"
+  Header always set X-Content-Type-Options "nosniff"
+  Header always set Referrer-Policy "same-origin"
+</IfModule>

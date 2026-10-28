@@ -1,0 +1,20 @@
+{
+  "name": "112th Sarbabhouma Bhakta Sammilani — Volunteer Registration",
+  "short_name": "Sammilani",
+  "description": "Register as a volunteer for the 112th Sarbabhouma Bhakta Sammilani, Kalyani, Balesore in Odia, English, Bengali, Hindi or Assamese.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#FBF6EE",
+  "theme_color": "#7A1F2B",
+  "lang": "en",
+  "icons": [
+    { "src": "icons/icon-192.png?v=2", "sizes": "192x192", "type": "image/png" },
+    { "src": "icons/icon-512.png?v=2", "sizes": "512x512", "type": "image/png" },
+    { "src": "icons/maskable-512.png?v=2", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    { "name": "Admin dashboard", "url": "admin.html", "icons": [{ "src": "icons/icon-192.png?v=2", "sizes": "192x192" }] }
+  ]
+}

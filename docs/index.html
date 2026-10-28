@@ -1,0 +1,334 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Volunteer Registration · 112th Sarbabhouma Bhakta Sammilani, Kalyani, Balesore, Odisha</title>
+  <meta name="description" content="Volunteer registration for the 112th Sarbabhouma Bhakta Sammilani, Kalyani, Balesore, Odisha — Odia, English, Bengali, Hindi and Assamese, with voice input.">
+  <meta name="theme-color" content="#7A1F2B">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icons/icon-192.png?v=2">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png?v=2">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="Sammilani">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans:wght@400;600;700&family=Noto+Sans+Oriya:wght@400;600;700&family=Noto+Sans+Bengali:wght@400;600;700&family=Noto+Sans+Devanagari:wght@400;600;700&family=Noto+Serif:wght@600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/css/app.css">
+  <script src="config.js"></script>
+</head>
+<body class="public">
+  <header class="topbar">
+    <div class="brand" id="brand" role="button" tabindex="0">
+      <img src="icons/icon-192.png?v=2" alt="" class="brand-mark">
+      <div class="brand-text">
+        <div class="brand-app" data-i18n="event_name">112th Sarbabhouma Bhakta Sammilani</div>
+        <div class="brand-sub"><span data-i18n="event_place">Kalyani, Balesore, Odisha</span> · <span data-i18n="app_title">Volunteer Registration</span></div>
+      </div>
+    </div>
+    <div class="topbar-actions">
+      <button id="install-btn" class="btn ghost small" hidden data-i18n="install_app">Install app</button>
+      <button id="lang-btn" class="btn ghost small lang-chip" hidden aria-label="Language">
+        <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="currentColor" d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20Zm6.9 6h-3a15.7 15.7 0 0 0-1.3-3.6A8 8 0 0 1 18.9 8ZM12 4c.8 1.2 1.5 2.5 1.9 4h-3.8c.4-1.5 1.1-2.8 1.9-4ZM4.3 14a8.2 8.2 0 0 1 0-4h3.4a16.5 16.5 0 0 0 0 4H4.3Zm.8 2h3a15.7 15.7 0 0 0 1.3 3.6A8 8 0 0 1 5.1 16Zm3-8h-3a8 8 0 0 1 4.3-3.6C8.8 5.5 8.4 6.7 8.1 8ZM12 20c-.8-1.2-1.5-2.5-1.9-4h3.8c-.4 1.5-1.1 2.8-1.9 4Zm2.3-6H9.7a14.7 14.7 0 0 1 0-4h4.6a14.7 14.7 0 0 1 0 4Zm.3 5.6c.6-1.1 1-2.3 1.3-3.6h3a8 8 0 0 1-4.3 3.6Zm1.7-5.6a16.5 16.5 0 0 0 0-4h3.4a8.2 8.2 0 0 1 0 4h-3.4Z"/></svg>
+        <span id="lang-btn-label">English</span>
+      </button>
+    </div>
+  </header>
+
+  <div id="sync-banner" class="sync-banner" hidden></div>
+
+  <main>
+    <!-- 1. Language -->
+    <section id="lang-screen" class="screen" hidden>
+      <div class="hero">
+        <img src="icons/logo.png" alt="Saraswat Math" class="hero-logo" width="96" height="86">
+        <div class="hero-event">112th Sarbabhouma Bhakta Sammilani</div>
+        <div class="hero-place">Kalyani, Balesore, Odisha</div>
+        <div class="hero-kicker">ଜୟଗୁରୁ · জয়গুরু · জয়গুৰু · जयगुरु · Jayaguru</div>
+        <h1>Choose your language</h1>
+        <p class="muted">ଆପଣଙ୍କ ଭାଷା ବାଛନ୍ତୁ · আপনার ভাষা বেছে নিন · আপোনাৰ ভাষা বাছক · अपनी भाषा चुनें</p>
+      </div>
+      <div class="lang-grid" id="lang-grid"></div>
+      <p class="footer-note">Assam Bangiya Saraswat Math · P.O. Kokilamukh, Jorhat, Assam 785108 · <a href="admin.html">Admin</a></p>
+
+    </section>
+
+    <!-- 2. Form -->
+    <section id="form-screen" class="screen" hidden>
+      <div class="edit-banner" id="edit-banner" hidden>
+        <span><span data-i18n="editing"></span> <b id="edit-reg"></b></span>
+        <button type="button" class="link-btn" id="edit-exit" data-i18n="cancel"></button>
+      </div>
+      <div class="progress" id="progress" aria-hidden="true">
+        <div class="progress-steps"><span></span><span></span><span></span><span></span><span></span></div>
+        <div class="progress-row">
+          <div class="progress-label"><span data-i18n="step"></span> <b id="step-num">1</b> / <span id="step-total">5</span> · <span id="step-title"></span></div>
+          <button type="button" class="restart-btn" id="restart-btn"><svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true"><path fill="currentColor" d="M12 5V2L7 6l5 4V7a5 5 0 1 1-5 5H5a7 7 0 1 0 7-7Z"/></svg><span data-i18n="start_over"></span></button>
+        </div>
+      </div>
+      <form id="reg-form" novalidate autocomplete="on">
+
+        <p class="intro" data-i18n="intro"></p>
+        <button type="button" class="edit-entry" id="edit-open"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path fill="currentColor" d="M4 17.2V20h2.8l8.3-8.3-2.8-2.8L4 17.2Zm13.7-7.6a1 1 0 0 0 0-1.4l-1.9-1.9a1 1 0 0 0-1.4 0l-1.5 1.5 2.8 2.8 2-1Z"/></svg><span data-i18n="edit_entry"></span></button>
+        <fieldset class="card step-panel" data-step="1">
+          <legend><span class="step">1</span><span data-i18n="section_personal"></span></legend>
+
+          <div class="field" data-field="name">
+            <label for="f-name"><span data-i18n="name"></span> <b class="req">*</b></label>
+            <div class="with-mic">
+              <input id="f-name" name="name" autocomplete="name" data-i18n-ph="name_ph" required>
+              <button type="button" class="mic" data-voice="name" data-i18n-title="speak"></button>
+            </div>
+            <div class="english-preview" data-preview="name" hidden>
+              <label data-i18n="in_english"></label>
+              <input data-english="name" autocomplete="off">
+            </div>
+            <div class="err"></div>
+          </div>
+
+          <div class="row">
+            <div class="field narrow" data-field="age">
+              <label for="f-age"><span data-i18n="age"></span> <b class="req">*</b></label>
+              <div class="with-mic">
+                <input id="f-age" name="age" inputmode="numeric" maxlength="3" required>
+                <button type="button" class="mic" data-voice="age" data-i18n-title="speak"></button>
+              </div>
+              <div class="err"></div>
+            </div>
+            <div class="field grow" data-field="gender">
+              <label><span data-i18n="gender"></span> <b class="req">*</b></label>
+              <div class="with-mic">
+                <div class="seg" role="radiogroup" id="gender-group">
+                  <label><input type="radio" name="gender" value="Male"><span data-i18n="Male"></span></label>
+                  <label><input type="radio" name="gender" value="Female"><span data-i18n="Female"></span></label>
+                </div>
+                <button type="button" class="mic" data-voice="gender" data-i18n-title="speak"></button>
+              </div>
+              <div class="err"></div>
+            </div>
+          </div>
+        </fieldset>
+
+        <fieldset class="card step-panel" data-step="2">
+          <legend><span class="step">2</span><span data-i18n="section_contact"></span></legend>
+
+          <div class="field" data-field="mobile">
+            <label for="f-mobile"><span data-i18n="mobile"></span> <b class="req">*</b></label>
+            <div class="with-mic">
+              <span class="prefix">+91</span>
+              <input id="f-mobile" name="mobile" type="tel" inputmode="numeric" autocomplete="tel-national" maxlength="10" required>
+              <button type="button" class="mic" data-voice="mobile" data-i18n-title="speak"></button>
+            </div>
+            <div class="err"></div>
+          </div>
+
+          <div class="field" data-field="whatsapp">
+            <label for="f-whatsapp" data-i18n="whatsapp"></label>
+            <label class="check"><input type="checkbox" id="wa-same" checked> <span data-i18n="same_as_mobile"></span></label>
+            <div class="with-mic" id="wa-wrap" hidden>
+              <span class="prefix">+91</span>
+              <input id="f-whatsapp" name="whatsapp" type="tel" inputmode="numeric" maxlength="10">
+              <button type="button" class="mic" data-voice="whatsapp" data-i18n-title="speak"></button>
+            </div>
+            <div class="err"></div>
+          </div>
+
+          <div class="field" data-field="email">
+            <label for="f-email"><span data-i18n="email"></span> <span class="muted">(<span data-i18n="optional"></span>)</span></label>
+            <div class="with-mic">
+              <input id="f-email" name="email" type="email" inputmode="email" autocomplete="email" placeholder="name@example.com">
+              <button type="button" class="mic" data-voice="email" data-i18n-title="speak"></button>
+            </div>
+            <div class="err"></div>
+          </div>
+          <div class="field" data-field="address">
+            <label for="f-address"><span data-i18n="address"></span> <b class="req">*</b></label>
+            <div class="with-mic top">
+              <textarea id="f-address" name="address" rows="2" autocomplete="street-address" data-i18n-ph="address_ph" required></textarea>
+              <button type="button" class="mic" data-voice="address" data-i18n-title="speak"></button>
+            </div>
+            <div class="english-preview" data-preview="address" hidden>
+              <label data-i18n="in_english"></label>
+              <textarea data-english="address" rows="2"></textarea>
+            </div>
+            <div class="err"></div>
+          </div>
+        </fieldset>
+
+        <fieldset class="card step-panel" data-step="3">
+          <legend><span class="step">3</span><span data-i18n="section_sangha"></span></legend>
+          <div class="field" data-field="sangha_id">
+            <label for="c-sangha_id"><span data-i18n="sangha"></span> <b class="req">*</b></label>
+            <div class="combo" id="combo-sangha_id" data-kind="sangha_id">
+              <div class="with-mic">
+                <input id="c-sangha_id" class="combo-input" autocomplete="off" role="combobox" aria-expanded="false" aria-autocomplete="list" data-i18n-ph="sangha_ph">
+                <button type="button" class="mic" data-voice="combo-sangha_id" data-i18n-title="speak"></button>
+              </div>
+              <ul class="combo-list" role="listbox" hidden></ul>
+              <div class="combo-other" hidden><span data-i18n="other_label"></span>: <span class="combo-other-text"></span></div>
+            </div>
+            <div class="err"></div>
+          </div>
+          <div class="field" data-field="lsangha">
+            <label for="c-lsangha"><span data-i18n="lsangha"></span> <span class="muted">(<span data-i18n="optional"></span>)</span></label>
+            <div class="combo" id="combo-lsangha" data-kind="lsangha">
+              <div class="with-mic">
+                <input id="c-lsangha" class="combo-input" autocomplete="off" role="combobox" aria-expanded="false" aria-autocomplete="list" data-i18n-ph="sangha_ph">
+                <button type="button" class="mic" data-voice="combo-lsangha" data-i18n-title="speak"></button>
+              </div>
+              <ul class="combo-list" role="listbox" hidden></ul>
+              <div class="combo-other" hidden><span data-i18n="other_label"></span>: <span class="combo-other-text"></span></div>
+            </div>
+            <div class="err"></div>
+          </div>
+          <div class="ref-block">
+            <div class="ref-head"><span data-i18n="reference"></span> <span class="muted">(<span data-i18n="optional"></span>)</span></div>
+            <p class="muted small ref-hint" data-i18n="reference_hint"></p>
+            <div class="field" data-field="bs">
+              <label for="c-bs" data-i18n="bs"></label>
+              <div class="combo" id="combo-bs" data-kind="bs">
+                <div class="with-mic">
+                  <input id="c-bs" class="combo-input" autocomplete="off" role="combobox" aria-expanded="false" aria-autocomplete="list" data-i18n-ph="ref_ph">
+                  <button type="button" class="mic" data-voice="combo-bs" data-i18n-title="speak"></button>
+                </div>
+                <ul class="combo-list" role="listbox" hidden></ul>
+                <div class="combo-other" hidden><span data-i18n="other_label"></span>: <span class="combo-other-text"></span></div>
+              </div>
+              <div class="err"></div>
+            </div>
+            <div class="field" data-field="zs">
+              <label for="c-zs" data-i18n="zs"></label>
+              <div class="combo" id="combo-zs" data-kind="zs">
+                <div class="with-mic">
+                  <input id="c-zs" class="combo-input" autocomplete="off" role="combobox" aria-expanded="false" aria-autocomplete="list" data-i18n-ph="ref_ph">
+                  <button type="button" class="mic" data-voice="combo-zs" data-i18n-title="speak"></button>
+                </div>
+                <ul class="combo-list" role="listbox" hidden></ul>
+                <div class="combo-other" hidden><span data-i18n="other_label"></span>: <span class="combo-other-text"></span></div>
+              </div>
+              <div class="err"></div>
+            </div>
+          </div>
+        </fieldset>
+
+        <fieldset class="card step-panel" data-step="4">
+          <legend><span class="step">4</span><span data-i18n="section_seva"></span></legend>
+          <p class="muted small step-q" data-i18n="seva_q"></p>
+          <div class="field" data-field="seva">
+            <label for="c-seva"><span data-i18n="seva"></span> <b class="req">*</b></label>
+            <div class="combo" id="combo-seva" data-kind="seva">
+              <div class="with-mic">
+                <input id="c-seva" class="combo-input" autocomplete="off" role="combobox" aria-expanded="false" aria-autocomplete="list" data-i18n-ph="sangha_ph">
+                <button type="button" class="mic" data-voice="combo-seva" data-i18n-title="speak"></button>
+              </div>
+              <ul class="combo-list" role="listbox" hidden></ul>
+              <div class="combo-other" hidden><span data-i18n="other_label"></span>: <span class="combo-other-text"></span></div>
+            </div>
+            <div class="err"></div>
+          </div>
+        </fieldset>
+
+        <fieldset class="card step-panel" data-step="5">
+          <legend><span class="step">5</span><span data-i18n="section_photo"></span></legend>
+          <div class="field" data-field="photo">
+            <div class="cam">
+              <div class="cam-frame" id="photo-frame">
+                <video id="camera-video" playsinline muted></video>
+                <img id="photo-preview" alt="" hidden>
+                <div class="cam-guide" id="cam-guide" aria-hidden="true"></div>
+                <div class="cam-msg" id="cam-msg" hidden><svg viewBox="0 0 24 24" width="30" height="30" aria-hidden="true"><path fill="currentColor" d="M9 3 7.2 5H4a2 2 0 0 0-2 2v11a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-3.2L15 3H9Zm3 5a4.5 4.5 0 1 1 0 9 4.5 4.5 0 0 1 0-9Zm0 2a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5Z"/></svg><span id="cam-msg-text"></span></div>
+                <div class="photo-busy" id="photo-busy" hidden><div class="spinner"></div><span data-i18n="photo_checking"></span></div>
+              </div>
+              <div class="photo-status" id="photo-status" role="status"></div>
+              <div class="cam-controls">
+                <label class="btn ghost small" id="upload-photo-label">
+                  <input type="file" id="upload-photo" accept="image/*" hidden>
+                  <span data-i18n="upload_photo"></span>
+                </label>
+                <button type="button" class="shutter" id="take-photo" data-i18n-title="capture"></button>
+                <button type="button" class="btn primary small" id="retake-btn" hidden data-i18n="retake"></button>
+                <button type="button" class="btn ghost small icon-btn" id="camera-switch" data-i18n-title="switch_camera"><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path fill="currentColor" d="M9 3 7.2 5H4a2 2 0 0 0-2 2v11a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-3.2L15 3H9Zm3 4a5 5 0 0 1 4.6 3H19l-3 3.5-3-3.5h1.3a3 3 0 0 0-5.1-.3L8 8.5A5 5 0 0 1 12 7Zm-4 3.5 3 3.5H9.7a3 3 0 0 0 5.1.3l1.2 1.2A5 5 0 0 1 7.4 14H5l3-3.5Z"/></svg></button>
+              </div>
+            </div>
+            <div class="err"></div>
+          </div>
+            <div class="field consent-field" data-field="consent">
+              <label class="check"><input type="checkbox" id="f-consent"> <span data-i18n="consent"></span></label>
+              <div class="err"></div>
+            </div>
+          </fieldset>
+
+        <div class="form-error" id="form-error" role="alert" hidden></div>
+        <div class="wizard-nav">
+          <button type="button" class="btn ghost" id="back-btn" data-i18n="back"></button>
+          <button type="button" class="btn primary" id="next-btn"><span data-i18n="next"></span> →</button>
+          <button type="submit" class="btn primary" id="submit-btn" hidden><span data-i18n="submit"></span></button>
+        </div>
+      </form>
+    </section>
+
+    <!-- Edit an existing registration: registration number + mobile -->
+    <section id="edit-screen" class="screen" hidden>
+      <form class="card edit-card" id="edit-form" novalidate>
+        <h1 data-i18n="edit_title"></h1>
+        <p class="muted" data-i18n="edit_intro"></p>
+        <div class="field" data-field="e-reg">
+          <label for="e-reg" data-i18n="reg_number"></label>
+          <input id="e-reg" autocomplete="off" autocapitalize="characters" placeholder="ABSM-2026-0123">
+        </div>
+        <div class="field" data-field="e-mobile">
+          <label for="e-mobile" data-i18n="mobile"></label>
+          <div class="with-mic"><span class="prefix">+91</span><input id="e-mobile" type="tel" inputmode="numeric" maxlength="10" autocomplete="tel-national"></div>
+        </div>
+        <div class="form-error" id="edit-err" role="alert" hidden></div>
+        <button type="submit" class="btn primary big" id="edit-find" data-i18n="edit_find"></button>
+        <button type="button" class="link-btn edit-new" id="edit-cancel" data-i18n="edit_new_instead"></button>
+      </form>
+    </section>
+
+    <!-- 3. Success -->
+    <section id="success-screen" class="screen" hidden>
+      <div class="success">
+        <div class="tick" aria-hidden="true"><svg viewBox="0 0 52 52"><circle cx="26" cy="26" r="24"/><path d="M15 27l7 7 15-16"/></svg></div>
+        <h1 id="success-title" data-i18n="success_title"></h1>
+        <p class="muted" id="success-msg" data-i18n="success_body"></p>
+        <div class="id-card" id="id-card">
+          <div class="id-head"><img src="icons/logo.png" alt=""><div class="id-lines"><div class="id-org"><b data-i18n="org"></b>, <span class="id-place" data-i18n="org_place"></span></div><div class="id-event"><b data-i18n="event_name"></b>, <span class="id-place" data-i18n="event_place"></span></div></div></div>
+          <div class="id-body">
+            <div class="id-photo"><img id="id-photo" alt=""></div>
+            <div class="id-info">
+              <div class="id-role" data-i18n="volunteer_card"></div>
+              <div class="id-name" id="id-name"></div>
+              <div class="id-name-orig" id="id-name-orig"></div>
+              <div class="id-sangha" id="id-sangha"></div>
+              <div class="id-seva" id="id-seva"></div>
+              <div class="id-reg"><span data-i18n="reg_number"></span><strong id="id-reg"></strong></div>
+            </div>
+          </div>
+        </div>
+        <div class="success-actions" id="success-actions">
+          <a class="btn ghost" id="wa-save" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="#25D366" d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2Zm5.8 14.1c-.2.7-1.4 1.3-2 1.4-.5 0-1.1.2-3.6-.8-3-1.2-4.9-4.3-5-4.5-.2-.2-1.2-1.6-1.2-3s.8-2.2 1-2.5c.3-.3.6-.4.8-.4h.6c.2 0 .4 0 .6.5l.9 2.1c0 .2.1.4 0 .6l-.4.6-.4.5c-.2.1-.3.3-.1.6.2.3.8 1.3 1.7 2.1 1.2 1 2.1 1.4 2.4 1.5.3.2.5.1.7-.1l1-1.2c.2-.3.4-.2.7-.1l2 1c.3.1.5.2.6.3.1.2.1.8-.2 1.5Z"/></svg><span data-i18n="save_whatsapp"></span></a>
+          <button type="button" class="btn ghost" id="edit-again"><span data-i18n="edit_details"></span></button>
+        </div>
+        <button class="btn primary big" id="again-btn" data-i18n="register_another"></button>
+      </div>
+    </section>
+  </main>
+
+  <!-- Modal -->
+  <div class="modal" id="modal" hidden>
+    <div class="modal-box" role="dialog" aria-modal="true">
+      <p id="modal-text"></p>
+      <div class="modal-actions">
+        <button class="btn ghost" id="modal-no"></button>
+        <button class="btn primary" id="modal-yes"></button>
+      </div>
+    </div>
+  </div>
+
+  <div class="listening" id="listening" hidden><div class="pulse"></div><div><div data-i18n="listening"></div><div class="interim" id="interim"></div></div></div>
+  <div class="toast" id="toast" hidden></div>
+
+  <script type="module" src="assets/js/app.js"></script>
+</body>
+</html>
